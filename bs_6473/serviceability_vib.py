@@ -5,12 +5,14 @@ import numpy as np
 import sys 
 import json 
 from scipy.signal import find_peaks
-
+from pathlib import Path
 
 plt.close('all')
 
+
+
 class Service_assessment():
-    def __init__(self,acc_data,fs,_dir,activity_factor):
+    def __init__(self,acc_data,fs,_dir,activity_factor,rms_fix = None):
         self.data = acc_data 
         self.fs = fs
         self._dir = _dir 
@@ -18,10 +20,12 @@ class Service_assessment():
         self.x_ticks = [1, 2, 3, 5, 6.3, 10, 16, 25, 40, 63, 80]
         self.ylimits = []
         self.xlimits = []
+        self.rms_fix = rms_fix
     
   
     def get_acc(self):
-        with open('BS_6472_curves.json', 'r') as file:
+        file_path = Path(__file__).parent / 'BS_6472_curves.json'
+        with open(file_path, 'r') as file:
             data = json.load(file)
         frequency = data[f"BS_6472_accelaration_{self._dir}"]["frequency"]
         accelerations = data[f"BS_6472_accelaration_{self._dir}"]["accelerations"]
@@ -38,7 +42,8 @@ class Service_assessment():
         
         fig, ax = plt.subplots()
         plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label='Acceleration limits')  # Added label here
-        self.plot_fft_rms(ax)
+        # self.plot_fft_rms(ax)
+        self.plot_fft_rms_fix(ax, self.rms_fix, color='gray')
         
         plt.title(title)
         plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
@@ -50,6 +55,8 @@ class Service_assessment():
         
         plt.show()
                 
+    def set_rms(self,rms):
+        self.rms_fix = rms
         
 
     
@@ -60,7 +67,7 @@ class Service_assessment():
         magnitude = 2 * np.abs(fft_output) / N
         rms_per_bin = magnitude / np.sqrt(2)
         
-        ax.plot(freqs[:N//2], rms_per_bin[:N//2], color='green', label='Normalized FFT')  # Added label here
+        ax.semilogx(freqs[:N//2], rms_per_bin[:N//2], color='green', label='Normalized FFT')  # Added label here
     
         # Detecting peaks
         peaks, _ = find_peaks(rms_per_bin[:N//2])
@@ -95,3 +102,53 @@ class Service_assessment():
         
         ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1) # Use ax.grid
 
+    def plot_fft_rms_fix(self, ax, rms_input, color='gray'):
+        N = len(self.data)
+        fft_output = np.fft.fft(self.data)
+        freqs = np.fft.fftfreq(N, 1/self.fs)
+        magnitude = 2 * np.abs(fft_output) / N
+        rms_per_bin = magnitude / np.sqrt(2)
+
+        # Normalize rms_per_bin from 0 to 1
+        normalized_rms = rms_per_bin / np.max(rms_per_bin)
+
+        # Multiply the input RMS with the normalized FFT
+        adjusted_rms = normalized_rms * rms_input
+
+        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color='green', label='Normalized FFT')
+
+        # Detecting peaks
+        peaks, _ = find_peaks(adjusted_rms[:N//2])
+        
+        # Find the maximum peak
+        max_peak_index = peaks[np.argmax(adjusted_rms[peaks])]
+        max_peak_freq = freqs[max_peak_index]
+        max_peak_value = adjusted_rms[max_peak_index]
+
+        # Define text position relative to peak
+        text_x_offset = 0.5
+        text_y_offset = 0.1
+
+        # Check x boundaries and adjust
+        if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
+            text_x_offset = -2
+
+        # Check y boundaries and adjust
+        if max_peak_value + text_y_offset > ax.get_ylim()[1]:
+            text_y_offset = -0.5
+
+        # Annotate the maximum peak
+        ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
+                    xy=(max_peak_freq, max_peak_value),
+                    xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
+                    arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
+
+        if self.xlimits[1] < self.fs/2:
+            ax.set_xlim(self.xlimits[0], self.xlimits[1])
+        else: 
+            ax.set_xlim(self.xlimits[0], int(self.fs/2))
+
+        ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Amplitude')
+        ax.legend()

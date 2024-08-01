@@ -3,7 +3,11 @@ from scipy.io import loadmat
 from typing import List, Dict, Any
 from pydantic import BaseModel
 from numpy.typing import NDArray
+from scipy.signal import welch, find_peaks
 
+
+
+import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib
 import pandas as pd
@@ -43,7 +47,34 @@ headers = ['time (sec)', 'X vibration (g)', 'Y vibration (g)', 'Z vibration (g)'
 def calculate_fs(data:NDArray) -> float:
     fs = 1/(np.mean(np.diff(data)))
     return fs
+def plot_psd(acc: np.ndarray, fs: float):
+    # Define nfft as 2**10
+    nfft = 2**10
+    
+    # Compute the Power Spectral Density using Welch's method
+    f, Pxx = welch(acc, fs, nperseg=nfft)
+    
+    # Plot the PSD
+    plt.figure(figsize=(10, 6))
+    plt.semilogy(f, Pxx)
+    plt.title('Power Spectral Density (PSD)')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('PSD (V^2/Hz)')
+    plt.grid(True)
+    plt.show()
 
+
+def calculate_rms_of_peaks(acc: np.ndarray):
+    # Find peaks in the signal
+    peaks, _ = find_peaks(acc)
+    
+    # Get the values at the peaks
+    peak_values = acc[peaks]
+    
+    # Calculate RMS of the peak values
+    rms_peaks = np.sqrt(np.mean(peak_values**2))
+    
+    return rms_peaks
 
 if __name__ == '__main__':
     vibration_survey = VibrationSurvey(list_of_tests=[])
@@ -54,3 +85,11 @@ if __name__ == '__main__':
                                     , Acc_y = df_data[headers[2]].to_numpy(),
                                         Acc_z = df_data[headers[3]].to_numpy())
         vibration_survey.append(vibration_test)
+
+    # Process the data
+    acc_data = vibration_survey.list_of_tests[5].Acc_z[39600:42000]*9.81
+    fs = vibration_survey.list_of_tests[5].fs
+    _dir = 'Z'
+    activity_factor = 24
+    service_assessment = Service_assessment(acc_data, fs, _dir, activity_factor,0.5)
+    service_assessment.BS_6472()
