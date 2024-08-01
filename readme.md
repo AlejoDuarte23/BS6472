@@ -2,7 +2,7 @@
 
 Serviceability assessment as per BS 6472 for human exposure to vibration in buildings Vibration sources other than blasting
 
-![Result][data/grandstand_N02_force/example_bs6473.svg]
+![Result](data/example_bs6473.svg)
 ## How to use it 
 
 Import  the Service_assessment class and pass the accelerarion data (NDArray), sampling frequency (float), activaty factor based on BS6472 guidelines, and rms
