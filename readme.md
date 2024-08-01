@@ -27,14 +27,19 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
         def append(self, test: VibrationTest):
             self.list_of_tests.append(test)
 
-    acc_data = vibration_survey.list_of_tests[5].Acc_z
+    # Process the data: and slice the evet : [39600:42000]
+    acc_data = vibration_survey.list_of_tests[5].Acc_z[39600:42000]*9.81
     fs = vibration_survey.list_of_tests[5].fs
     _dir = 'Z'
-    activity_factor = 24
-    rms = 0.5
-
-    service_assessment = Service_assessment(acc_data, fs, _dir, activity_factor,rms)
-    service_assessment.BS_6472()
+    service_assessment = Service_assessment(acc_data, fs, _dir,0.18)
+    
+    # curve factor as per BS 6472
+    curve_factors = [1,2,4,8,24]
+    labels = [f"{factor}x base curve" for factor in curve_factors]
+    labels[0] = 'Base curve'
+    
+    # Assessment plot
+    service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels)
 ```
 
 # Install
