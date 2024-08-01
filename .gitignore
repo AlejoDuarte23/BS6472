@@ -1,2 +1,4 @@
 reference_info/
-__pycache__
+bs6473/
+__pycache__/
+*.env

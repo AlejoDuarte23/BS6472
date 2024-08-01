@@ -1,43 +1,56 @@
-    import sys 
-sys.path.append(r'C:\Users\aleja\Documents\J288 Gregory Data\Photos Week 1 Sojitz\Not_grating')
-from _engine import SingleMeasurement, FFTDomain, DataVisualizer
-from pathlib import Path
-from serviceability_vib import Service_assessment
+from bs_6473 import Service_assessment
+from scipy.io import loadmat
+from typing import List, Dict, Any
+from pydantic import BaseModel
+from numpy.typing import NDArray
+
+import numpy as np
+import matplotlib
+import pandas as pd
+
+matplotlib.use('Qt5Agg')
+
+#%% Clasess
+class VibrationTest(BaseModel):
+    name: str
+    fs: float
+    Acc_x: Any
+    Acc_y: Any
+    Acc_z: Any
 
 
-# %% B4C5 Z
-path = Path(r"C:\Users\aleja\Documents\J288 Gregory Data\healt_data_iso2631\EqualizedFile.dat")
-name = '27_05_2023-grid B4-C5'
-measurement = SingleMeasurement(name,128,path).load_asc(cols=[0,1,2,3,4,5])
-acc_m_s2 = measurement.data[:,5]*9.81/1000
-Service_assessment(acc_m_s2,128,'Z',8).BS_6472()
+class VibrationSurvey(BaseModel):
+    list_of_tests: List[VibrationTest]
+    
+    def append(self, test: VibrationTest):
+        self.list_of_tests.append(test)
 
-# %% B4C5 Y
-name = 'A5 26/05/2023'
-path = Path(r"C:\Users\aleja\Documents\J288 Gregory Data\healt_data_iso2631\HERE_001part1\EqualizedFile.dat")
-measurement = SingleMeasurement(name,128,path).load_asc(cols=[0,1,2,3,4,5])
-acc_m_s2 = measurement.data[:,4]*9.81/1000
-Service_assessment(acc_m_s2,128,'Y',8).BS_6472()
+#%% Data
+data_list = [
+"data/grandstand_N02_force/NO-02_13DIC_cel1_D.csv",
+"data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
+"data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
+"data/grandstand_N02_force/NO-02_13DIC_cel8_D.csv",
+"data/grandstand_N02_force/NO-02-13DIC-cel2-D.csv",
+"data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv"
+]
 
+names = ["cel1", "cel5", "cel7", "cel8", "cel2", "cel3"]
 
-# %% screen flooor 
-        # F2-F3
-name = 'Vibrations screens F2-F3 27/05/2023'
-path =Path(r"C:\Users\aleja\Documents\J288 Gregory Data\data_check_2023_27\27_06_2023_044part1\EqualizedFile.dat")
-measurement = SingleMeasurement(name,128,path).load_asc(cols=[0,1,2,3,4,5])
-acc_m_s2 = measurement.data[:,5]*9.81/1000
-Service_assessment(acc_m_s2,128,'Z',8).BS_6472()
-        # tromino 5 - set up 3 - FG/45
-name = 'Vibrations screens FG/45 26/05/2023'
-path =Path(r"C:\Users\aleja\Documents\J288 Gregory Data\data_check_2022_26\24_06_2023_024part1\EqualizedFile.dat")
-measurement = SingleMeasurement(name,128,path).load_asc(cols=[0,1,2,3,4,5])
-acc_m_s2 = measurement.data[:,5]*9.81/1000
-Service_assessment(acc_m_s2,128,'Z',8).BS_6472()
-        # tromino 5 - set up 3 - D5-E5
-name = 'Vibrations screens D5-E5 26/05/2023'
-path =Path(r"C:\Users\aleja\Documents\J288 Gregory Data\data_check_2022_26\24_06_2023_025part1\EqualizedFile.dat")
-measurement = SingleMeasurement(name,128,path).load_asc(cols=[0,1,2,3,4,5])
-acc_m_s2 = measurement.data[:,5]*9.81/1000
-Service_assessment(acc_m_s2,128,'Z',8).BS_6472()
+headers = ['time (sec)', 'X vibration (g)', 'Y vibration (g)', 'Z vibration (g)']
+
+#%% Functions
+def calculate_fs(data:NDArray) -> float:
+    fs = 1/(np.mean(np.diff(data)))
+    return fs
 
 
+if __name__ == '__main__':
+    vibration_survey = VibrationSurvey(list_of_tests=[])
+    for data , name in zip(data_list, names):
+        df_data = pd.read_csv(data)
+        fs = calculate_fs(data = df_data[headers[0]].to_numpy()[:1000])
+        vibration_test = VibrationTest(name = name, fs = fs, Acc_x = df_data[headers[1]].to_numpy()
+                                    , Acc_y = df_data[headers[2]].to_numpy(),
+                                        Acc_z = df_data[headers[3]].to_numpy())
+        vibration_survey.append(vibration_test)
