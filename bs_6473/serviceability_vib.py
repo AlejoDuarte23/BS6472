@@ -44,8 +44,6 @@ class Service_assessment():
     
     
 
-
-
     def BS_6472(self, act_fact: Union[int, List[int]],
                 labels: Union[str,List[str]],
                 color: str = 'k'):
@@ -67,7 +65,15 @@ class Service_assessment():
         fig, ax = plt.subplots()
         for accelerations, label, lstyle in zip(accel_limits_list,labels,self.line_styles):
             plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label= label, linestyle='--', dashes=lstyle)  # Added label here
-        self.plot_fft_rms_fix(ax, self.rms_fix, color='gray')
+
+        
+        if isinstance(self.rms_fix, float):
+            self.data = [self.data]
+            self.rms_fix = [self.rms_fix]
+        
+        for signal, rms in zip(self.data, self.rms_fix):    
+            self.plot_fft_rms_fix(ax, signal, rms, color='gray')
+
 
         plt.title(title)
         plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
@@ -82,7 +88,7 @@ class Service_assessment():
         
 
     
-    def plot_fft_rms(self, ax, color='gray'):
+    def plot_fft_rms_auto(self, ax, color='gray'):
         N = len(self.data)
         fft_output = np.fft.fft(self.data)
         freqs = np.fft.fftfreq(N, 1/self.fs)
@@ -124,9 +130,10 @@ class Service_assessment():
         
         ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1) # Use ax.grid
 
-    def plot_fft_rms_fix(self, ax, rms_input, color='gray'):
-        N = len(self.data)
-        fft_output = np.fft.fft(self.data)
+
+    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray'):
+        N = len(data)
+        fft_output = np.fft.fft(data)
         freqs = np.fft.fftfreq(N, 1/self.fs)
         magnitude = 2 * np.abs(fft_output) / N
         rms_per_bin = magnitude / np.sqrt(2)
@@ -137,7 +144,7 @@ class Service_assessment():
         # Multiply the input RMS with the normalized FFT
         adjusted_rms = normalized_rms * rms_input
 
-        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color='green', label='Normalized FFT')
+        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color=color, label='Normalized FFT')
 
         # Detecting peaks
         peaks, _ = find_peaks(adjusted_rms[:N//2])
