@@ -6,53 +6,75 @@ import sys
 import json 
 from scipy.signal import find_peaks
 from pathlib import Path
-
+from typing import TypeVar, Union, List, overload
 plt.close('all')
+
+T = TypeVar('T',bound= Union[int, List] )
+
 
 
 
 class Service_assessment():
-    def __init__(self,acc_data,fs,_dir,activity_factor,rms_fix = None):
+    def __init__(self,acc_data,fs,_dir,rms_fix = None):
         self.data = acc_data 
         self.fs = fs
         self._dir = _dir 
-        self.act_fact = activity_factor
         self.x_ticks = [1, 2, 3, 5, 6.3, 10, 16, 25, 40, 63, 80]
         self.ylimits = []
         self.xlimits = []
         self.rms_fix = rms_fix
+        self.line_styles = [
+                (5, 5), (10, 5), (15, 5), (20, 5), (25, 5),
+                (5, 10), (5, 15), (5, 20), (5, 25), (10, 10)
+            ]
+
     
   
-    def get_acc(self):
+    def get_acc(self, act_fact: int):
         file_path = Path(__file__).parent / 'BS_6472_curves.json'
         with open(file_path, 'r') as file:
             data = json.load(file)
         frequency = data[f"BS_6472_accelaration_{self._dir}"]["frequency"]
         accelerations = data[f"BS_6472_accelaration_{self._dir}"]["accelerations"]
         # Factoring the accelerations base on activities 
-        accelerations = [value * self.act_fact for value in accelerations]
+        accelerations = [value * act_fact for value in accelerations]
         self.ylimits = [accelerations[0], accelerations[-1]]
         self.xlimits = [frequency[0], frequency[-1]]
         return frequency,accelerations
     
-    def BS_6472(self,color = 'k'):
-        # suptitle = 'BS 6472 - Guide to Evaluation of human exposure \n to vibration in buildings'
+    
+
+
+
+    def BS_6472(self, act_fact: Union[int, List[int]],
+                labels: Union[str,List[str]],
+                color: str = 'k'):
+    
+
+        if isinstance(act_fact, int):
+            act_fact = [act_fact]
+
+        if isinstance(labels, str):
+            labels = [labels]
+
+        accel_limits_list = []
         title = f'Acceleration (rms) values for the base curve ({self._dir} axis)\nbased on BS 6472'
-        frequencies,accelerations = self.get_acc()
-        
+
+        for factor in act_fact:
+            frequencies, accelerations = self.get_acc(factor)
+            accel_limits_list.append(accelerations)
+
         fig, ax = plt.subplots()
-        plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label='Acceleration limits')  # Added label here
-        # self.plot_fft_rms(ax)
+        for accelerations, label, lstyle in zip(accel_limits_list,labels,self.line_styles):
+            plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label= label, linestyle='--', dashes=lstyle)  # Added label here
         self.plot_fft_rms_fix(ax, self.rms_fix, color='gray')
-        
+
         plt.title(title)
         plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
         plt.xlabel('Frequency (Hz)', fontsize=11)
         plt.ylabel('Acceleration rms (m/s²)', fontsize=11)
-        plt.legend(framealpha=0.0)
-
-        ax.legend()  # Display the legend
-        
+        plt.legend(framealpha=0.0, loc='lower left')
+        ax.legend(loc='lower left')
         plt.show()
                 
     def set_rms(self,rms):
@@ -151,4 +173,4 @@ class Service_assessment():
         ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
         ax.set_xlabel('Frequency (Hz)')
         ax.set_ylabel('Amplitude')
-        ax.legend()
+        ax.legend(loc='lower left')
