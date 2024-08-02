@@ -45,7 +45,7 @@ data_list = [
 "data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv",
 ]
 
-names = ["Phone 5", "Phone 7", "Phone 8", "Phone 2", "phone 3"]
+names = ["Sensor 5", "Sensor 7", "Sensor 8", "Sensor 2", "Sensor 3"]
 
 headers = ['time (sec)', 'X vibration (g)', 'Y vibration (g)', 'Z vibration (g)']
 

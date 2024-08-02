@@ -65,16 +65,17 @@ class Service_assessment():
 
         accel_limits_list = []
         title = f'Acceleration (rms) values for the base curve ({self._dir} axis)\nbased on BS 6472'
-
+    
         for factor in act_fact:
             frequencies, accelerations = self.get_acc(factor)
             accel_limits_list.append(accelerations)
 
-        fig, ax = plt.subplots()
-        for accelerations, label, lstyle in zip(accel_limits_list,labels,self.line_styles):
-            plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label= label, linestyle='--', dashes=lstyle)  # Added label here
+        accel_limit_cmap = Colormap(colors = ["#FF0000", "#990000","#800000"],n_bins=6, cmap_name='red_mate')
 
-        # Create the first legend
+        fig, ax = plt.subplots()
+        for indx, (accelerations, label, lstyle) in enumerate(zip(accel_limits_list,labels,self.line_styles)):
+            plt.plot(frequencies, accelerations, color= accel_limit_cmap.get_color(indx,len(accel_limits_list)), linewidth=1.2, label= label, linestyle='--', dashes=lstyle) 
+
 
         # Add the legend to the plot'+}        
         if isinstance(self.rms_fix, float):
@@ -88,59 +89,23 @@ class Service_assessment():
             self.plot_fft_rms_fix(ax, signal, rms, color=colormap.get_color(index, number_of_signals),tooltip=tooltip_val,sensor_name = sensor_name)
 
 
+        lines = ax.get_lines()
+        legend1 = plt.legend([lines[i]for i in range(len(accel_limits_list))], labels, loc='lower right', framealpha=0.8)
+        ax.add_artist(legend1)
+
+        legend2 = plt.legend([lines[i] for i in range(len(accel_limits_list), len(lines))], sensor_names, loc='lower left', framealpha=0.8)
+        ax.add_artist(legend2)
+
         plt.title(title)
         plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
         ax.set_xlabel('Frequency (Hz)')
         plt.ylabel('Acceleration rms (m/s²)', fontsize=11)
-        plt.legend(framealpha=0.0, loc='lower left')
-        ax.legend(loc='lower left')
+        # plt.legend(framealpha=0.0, loc='lower left')
+        # ax.legend(loc='lower left')
         plt.show()
+
     def set_rms(self,rms):
         self.rms_fix = rms
-        
-
-    
-    def plot_fft_rms_auto(self, ax, color='gray'):
-        N = len(self.data)
-        fft_output = np.fft.fft(self.data)
-        freqs = np.fft.fftfreq(N, 1/self.fs)
-        magnitude = 2 * np.abs(fft_output) / N
-        rms_per_bin = magnitude / np.sqrt(2)
-        
-        ax.semilogx(freqs[:N//2], rms_per_bin[:N//2], color='green', label='Normalized FFT')  # Added label here
-    
-        # Detecting peaks
-        peaks, _ = find_peaks(rms_per_bin[:N//2])
-        
-        # Find the maximum peak
-        max_peak_index = peaks[np.argmax(rms_per_bin[peaks])]
-        max_peak_freq = freqs[max_peak_index]
-        max_peak_value = rms_per_bin[max_peak_index]
-        
-        # Define text position relative to peak
-        text_x_offset = 0.5
-        text_y_offset = 0.1
-        
-        # Check x boundaries and adjust
-        if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
-            text_x_offset = -2
-    
-        # Check y boundaries and adjust
-        if max_peak_value + text_y_offset > ax.get_ylim()[1]:
-            text_y_offset = -0.5
-    
-        # Annotate the maximum peak
-        ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
-                    xy=(max_peak_freq, max_peak_value),
-                    xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
-                    arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
-        
-        if self.xlimits[1] < self.fs/2:
-            ax.set_xlim(self.xlimits[0], self.xlimits[1])
-        else: 
-            ax.set_xlim(self.xlimits[0], int(self.fs/2))
-        
-        ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1) # Use ax.grid
 
 
     def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT'):
@@ -160,49 +125,55 @@ class Service_assessment():
 
 
         if tooltip:
-            # Detecting peaks
-            peaks, _ = find_peaks(adjusted_rms[:N//2])
-            
-            # Find the maximum peak
-            max_peak_index = peaks[np.argmax(adjusted_rms[peaks])]
-            max_peak_freq = freqs[max_peak_index]
-            max_peak_value = adjusted_rms[max_peak_index]
+            self.add_tooltip(ax,adjusted_rms=adjusted_rms, freqs=freqs, N=N)
 
-            # Define text position relative to peak
-            text_x_offset = 0.5
-            text_y_offset = 0.1
 
-            # Check x boundaries and adjust
-            if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
-                text_x_offset = -2
+        ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Amplitude')
+    
+    def add_tooltip(self,ax, adjusted_rms: np.array, freqs: np.array, N: int):
+        # Detecting peaks
+        peaks, _ = find_peaks(adjusted_rms[:N//2])
+        
+        # Find the maximum peak
+        max_peak_index = peaks[np.argmax(adjusted_rms[peaks])]
+        max_peak_freq = freqs[max_peak_index]
+        max_peak_value = adjusted_rms[max_peak_index]
 
-            # Check y boundaries and adjust
-            if max_peak_value + text_y_offset > ax.get_ylim()[1]:
-                text_y_offset = -0.5
+        # Define text position relative to peak
+        text_x_offset = 0.5
+        text_y_offset = 0.1
 
-            # Annotate the maximum peak
-            ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
-                        xy=(max_peak_freq, max_peak_value),
-                        xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
-                        arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
+        # Check x boundaries and adjust
+        if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
+            text_x_offset = -2
+
+        # Check y boundaries and adjust
+        if max_peak_value + text_y_offset > ax.get_ylim()[1]:
+            text_y_offset = -0.5
+
+        # Annotate the maximum peak
+        ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
+                    xy=(max_peak_freq, max_peak_value),
+                    xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
+                    arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
 
         if self.xlimits[1] < self.fs/2:
             ax.set_xlim(self.xlimits[0], self.xlimits[1])
         else: 
             ax.set_xlim(self.xlimits[0], int(self.fs/2))
 
-        ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Amplitude')
-
 
 class Colormap:
-    def __init__(self):
-        colors = ["#0F0", "#00F"]  # Dark grey to Gold
-        n_bins = 7  # Number of bins
-        cmap_name = "grey_gold"
+    def __init__(self,colors: List[str] = ["#00008B", "#1E90FF", "#87CEFA"],
+                 n_bins: int = 10,
+                cmap_name: str = "blue_mate"):
+         
+
         self.cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
 
+        
     def get_color(self, index, total):
         """Get a specific color from the colormap based on index and total number of items."""
         return self.cm(index / (total - 1) if total > 1 else 0)
