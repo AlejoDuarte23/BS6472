@@ -1,14 +1,17 @@
 
-from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import sys 
 import json 
+
+
+from pathlib import Path
 from scipy.signal import find_peaks
 from pathlib import Path
 from typing import TypeVar, Union, List, overload
-plt.close('all')
+from matplotlib.colors import LinearSegmentedColormap
 
+plt.close('all')
 T = TypeVar('T',bound= Union[int, List] )
 
 
@@ -46,8 +49,13 @@ class Service_assessment():
 
     def BS_6472(self, act_fact: Union[int, List[int]],
                 labels: Union[str,List[str]],
-                color: str = 'k'):
+                tooltip: list,
+                sensor_names: list):
     
+        self.tooltip = tooltip
+        self.sensor_names = sensor_names
+        colormap = Colormap()
+
 
         if isinstance(act_fact, int):
             act_fact = [act_fact]
@@ -66,23 +74,27 @@ class Service_assessment():
         for accelerations, label, lstyle in zip(accel_limits_list,labels,self.line_styles):
             plt.plot(frequencies, accelerations, color='r', linewidth=1.2, label= label, linestyle='--', dashes=lstyle)  # Added label here
 
-        
+        # Create the first legend
+
+        # Add the legend to the plot'+}        
         if isinstance(self.rms_fix, float):
             self.data = [self.data]
             self.rms_fix = [self.rms_fix]
+            self.tooltip = [True]
+            self.sensor_names = [sensor_names]
         
-        for signal, rms in zip(self.data, self.rms_fix):    
-            self.plot_fft_rms_fix(ax, signal, rms, color='gray')
+        number_of_signals = len(self.data)
+        for index, (signal, rms, tooltip_val,sensor_name) in enumerate(zip(self.data, self.rms_fix, self.tooltip , self.sensor_names)):    
+            self.plot_fft_rms_fix(ax, signal, rms, color=colormap.get_color(index, number_of_signals),tooltip=tooltip_val,sensor_name = sensor_name)
 
 
         plt.title(title)
         plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
-        plt.xlabel('Frequency (Hz)', fontsize=11)
+        ax.set_xlabel('Frequency (Hz)')
         plt.ylabel('Acceleration rms (m/s²)', fontsize=11)
         plt.legend(framealpha=0.0, loc='lower left')
         ax.legend(loc='lower left')
         plt.show()
-                
     def set_rms(self,rms):
         self.rms_fix = rms
         
@@ -131,7 +143,7 @@ class Service_assessment():
         ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1) # Use ax.grid
 
 
-    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray'):
+    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT'):
         N = len(data)
         fft_output = np.fft.fft(data)
         freqs = np.fft.fftfreq(N, 1/self.fs)
@@ -144,33 +156,35 @@ class Service_assessment():
         # Multiply the input RMS with the normalized FFT
         adjusted_rms = normalized_rms * rms_input
 
-        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color=color, label='Normalized FFT')
+        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color=color, label=sensor_name, alpha = 0.8)  # Added label here
 
-        # Detecting peaks
-        peaks, _ = find_peaks(adjusted_rms[:N//2])
-        
-        # Find the maximum peak
-        max_peak_index = peaks[np.argmax(adjusted_rms[peaks])]
-        max_peak_freq = freqs[max_peak_index]
-        max_peak_value = adjusted_rms[max_peak_index]
 
-        # Define text position relative to peak
-        text_x_offset = 0.5
-        text_y_offset = 0.1
+        if tooltip:
+            # Detecting peaks
+            peaks, _ = find_peaks(adjusted_rms[:N//2])
+            
+            # Find the maximum peak
+            max_peak_index = peaks[np.argmax(adjusted_rms[peaks])]
+            max_peak_freq = freqs[max_peak_index]
+            max_peak_value = adjusted_rms[max_peak_index]
 
-        # Check x boundaries and adjust
-        if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
-            text_x_offset = -2
+            # Define text position relative to peak
+            text_x_offset = 0.5
+            text_y_offset = 0.1
 
-        # Check y boundaries and adjust
-        if max_peak_value + text_y_offset > ax.get_ylim()[1]:
-            text_y_offset = -0.5
+            # Check x boundaries and adjust
+            if max_peak_freq + text_x_offset > ax.get_xlim()[1]:
+                text_x_offset = -2
 
-        # Annotate the maximum peak
-        ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
-                    xy=(max_peak_freq, max_peak_value),
-                    xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
-                    arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
+            # Check y boundaries and adjust
+            if max_peak_value + text_y_offset > ax.get_ylim()[1]:
+                text_y_offset = -0.5
+
+            # Annotate the maximum peak
+            ax.annotate(f'({max_peak_freq:.2f} Hz, {max_peak_value:.2f} m/s²)',
+                        xy=(max_peak_freq, max_peak_value),
+                        xytext=(max_peak_freq + text_x_offset, max_peak_value + text_y_offset),  
+                        arrowprops=dict(facecolor='black', arrowstyle='->', shrinkA=0, shrinkB=5))
 
         if self.xlimits[1] < self.fs/2:
             ax.set_xlim(self.xlimits[0], self.xlimits[1])
@@ -180,4 +194,15 @@ class Service_assessment():
         ax.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
         ax.set_xlabel('Frequency (Hz)')
         ax.set_ylabel('Amplitude')
-        ax.legend(loc='lower left')
+
+
+class Colormap:
+    def __init__(self):
+        colors = ["#0F0", "#00F"]  # Dark grey to Gold
+        n_bins = 7  # Number of bins
+        cmap_name = "grey_gold"
+        self.cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
+
+    def get_color(self, index, total):
+        """Get a specific color from the colormap based on index and total number of items."""
+        return self.cm(index / (total - 1) if total > 1 else 0)

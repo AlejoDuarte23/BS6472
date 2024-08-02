@@ -45,7 +45,7 @@ data_list = [
 "data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv",
 ]
 
-names = ["cel5", "cel7", "cel8", "cel2", "cel3"]
+names = ["Phone 5", "Phone 7", "Phone 8", "Phone 2", "phone 3"]
 
 headers = ['time (sec)', 'X vibration (g)', 'Y vibration (g)', 'Z vibration (g)']
 
@@ -90,11 +90,13 @@ if __name__ == '__main__':
     acc_z_ms = [slice_array(acc,29600,32000) for acc in acc_z]
 
     rms_acc_z = [calculate_rms(acc) for acc in acc_z_ms]
+    max_index = np.argmax(rms_acc_z)
 
-    plt.figure()
-    for acc in acc_z_ms:
-        plt.plot(acc)
-    plt.show()
+    #tooltip asignation to the max rms value
+    bool_list = [False] * len(data)
+    bool_list[max_index] = True
+
+
 
 
     _dir = 'Z'
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     labels[0] = 'Base curve'
     
     # Assessment plot
-    service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels)
+    service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels,tooltip=bool_list,sensor_names=names)
 
     
 
