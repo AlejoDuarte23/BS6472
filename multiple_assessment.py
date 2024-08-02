@@ -1,18 +1,15 @@
-from bs_6473 import Service_assessment
-from scipy.io import loadmat
-from typing import List, Dict, Any, Literal
 from pydantic import BaseModel
 from numpy.typing import NDArray
-from scipy.signal import welch, find_peaks
-
+from bs_6473 import Service_assessment
+from typing import List, Any, Literal
 from utils import AlignMultipleMeasurements
-
 
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib
 import pandas as pd
 
+# For interactive terminal
 matplotlib.use('Qt5Agg')
 
 #%% Clasess
@@ -26,7 +23,6 @@ class VibrationTest(BaseModel):
     def set_accelerations(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z'], data: np.ndarray):
         setattr(self, axis, data)
 
-
 class VibrationSurvey(BaseModel):
     list_of_tests: List[VibrationTest]
     
@@ -36,7 +32,7 @@ class VibrationSurvey(BaseModel):
     def get_axis_data(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z']) -> List[np.ndarray]:
         return [getattr(test, axis) for test in self.list_of_tests]
 
-#%% Data
+#%% Data and labels
 data_list = [
 "data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
 "data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
@@ -55,14 +51,9 @@ def calculate_fs(data:NDArray) -> float:
     return fs
 
 def align_data_from_vibration_survey(vibration_survey: VibrationSurvey, axis: Literal['Acc_x', 'Acc_y', 'Acc_z']) -> VibrationSurvey:
-    # Align the data
-
     aligned_signals = AlignMultipleMeasurements([getattr(test, axis) for test in vibration_survey.list_of_tests]).align_signals()
-    # # Update the data in the VibrationSurvey object
     for i, test in enumerate(vibration_survey.list_of_tests):
         test.set_accelerations(axis, aligned_signals[i])
-        print(len(getattr(test, axis)))  # This will print the length of each aligned signal
-    
     return vibration_survey
 
 def calculate_rms(data: np.array) -> float:
@@ -71,7 +62,10 @@ def calculate_rms(data: np.array) -> float:
 def slice_array(data: np.array, start: int, end: int) -> np.array:
     return data[start:end]
 
+#%% Main
 if __name__ == '__main__':
+
+    # Preprocess data 
     cutoff = 10000
     vibration_survey = VibrationSurvey(list_of_tests=[])
     for data , name in zip(data_list, names):
@@ -82,7 +76,7 @@ if __name__ == '__main__':
                                         Acc_z = df_data[headers[3]].to_numpy()[cutoff:-1]*9.81)
         vibration_survey.append(vibration_test)
 
-    #Allign data from vibration survey
+    # Allign data from vibration survey
     vibration_survey_align_z = align_data_from_vibration_survey(vibration_survey, 'Acc_z')
 
     acc_z = vibration_survey_align_z.get_axis_data('Acc_z')
@@ -92,12 +86,9 @@ if __name__ == '__main__':
     rms_acc_z = [calculate_rms(acc) for acc in acc_z_ms]
     max_index = np.argmax(rms_acc_z)
 
-    #tooltip asignation to the max rms value
+    # Tooltip asignation to the max rms value
     bool_list = [False] * len(data)
     bool_list[max_index] = True
-
-
-
 
     _dir = 'Z'
     service_assessment = Service_assessment(acc_data=acc_z_ms, 
@@ -105,7 +96,7 @@ if __name__ == '__main__':
                                             _dir = _dir,
                                             rms_fix= rms_acc_z)
     
-    # curve factor as per BS 6472
+    # Curve factor as per BS 6472
     curve_factors = [1,2,4,8,24]
     labels = [f"{factor}x base curve" for factor in curve_factors]
     labels[0] = 'Base curve'

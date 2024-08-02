@@ -1,6 +1,6 @@
 from bs_6473 import Service_assessment
 from scipy.io import loadmat
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Literal
 from pydantic import BaseModel
 from numpy.typing import NDArray
 from scipy.signal import welch, find_peaks
@@ -22,12 +22,19 @@ class VibrationTest(BaseModel):
     Acc_y: Any
     Acc_z: Any
 
+    def set_accelerations(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z'], data: np.ndarray):
+        setattr(self, axis, data)
+
 
 class VibrationSurvey(BaseModel):
     list_of_tests: List[VibrationTest]
     
     def append(self, test: VibrationTest):
         self.list_of_tests.append(test)
+
+    def get_axis_data(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z']) -> List[np.ndarray]:
+        return [getattr(test, axis) for test in self.list_of_tests]
+
 
 #%% Data
 data_list = [
@@ -100,8 +107,7 @@ if __name__ == '__main__':
     labels = [f"{factor}x base curve" for factor in curve_factors]
     labels[0] = 'Base curve'
     
-    # Assessment plot
-    service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels)
+    service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels, tooltip=True , sensor_names=['Sensor 3'])
 
 
     
