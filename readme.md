@@ -35,7 +35,7 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
             return [getattr(test, axis) for test in self.list_of_tests]
 
 
-    # Process the data: and slice the evet : [39600:42000]
+    # Process the data: and slice the event : [39600:42000]
     acc_data = vibration_survey.list_of_tests[5].Acc_z[39600:42000]*9.81
     fs = vibration_survey.list_of_tests[5].fs
     _dir = 'Z'
