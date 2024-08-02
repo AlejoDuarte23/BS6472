@@ -32,7 +32,15 @@ class Service_assessment():
             ]
 
     
-  
+    def get_weights(self):
+
+        file_path = Path(__file__).parent / 'BS_6472_weights.json'
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        frequency = data["BS_6472_weights_Z"]["frequency"]
+        weights = data["BS_6472_weights_Z"]["weight"]
+        return frequency, weights
+
     def get_acc(self, act_fact: int):
         file_path = Path(__file__).parent / 'BS_6472_curves.json'
         with open(file_path, 'r') as file:
@@ -64,7 +72,7 @@ class Service_assessment():
             labels = [labels]
 
         accel_limits_list = []
-        title = f'Acceleration (rms) values for the base curve ({self._dir} axis)\nbased on BS 6472'
+        title = f' Weighted Acceleration (rms) values for the base curve ({self._dir} axis)\nbased on BS 6472'
     
         for factor in act_fact:
             frequencies, accelerations = self.get_acc(factor)
@@ -108,7 +116,7 @@ class Service_assessment():
         self.rms_fix = rms
 
 
-    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT'):
+    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT' , weights = True):
         N = len(data)
         fft_output = np.fft.fft(data)
         freqs = np.fft.fftfreq(N, 1/self.fs)
@@ -118,10 +126,21 @@ class Service_assessment():
         # Normalize rms_per_bin from 0 to 1
         normalized_rms = rms_per_bin / np.max(rms_per_bin)
 
-        # Multiply the input RMS with the normalized FFT
-        adjusted_rms = normalized_rms * rms_input
+        if weights & (self._dir == 'Z'):
+            frequency, weighting_factors = self.get_weights()
+            interp_weights = np.interp(np.abs(freqs), frequency, weighting_factors)
+            weighted_rms = normalized_rms * interp_weights
+        else:
+            weighted_rms = normalized_rms
 
-        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color=color, label=sensor_name, alpha = 0.8)  # Added label here
+
+
+  
+
+        # Multiply the input RMS with the normalized FFT
+        adjusted_rms = weighted_rms * rms_input
+
+        ax.loglog(freqs[:N//2], adjusted_rms[:N//2], color=color, label=sensor_name, alpha = 0.7)  # Added label here
 
 
         if tooltip:
@@ -166,7 +185,7 @@ class Service_assessment():
 
 
 class Colormap:
-    def __init__(self,colors: List[str] = ["#00008B", "#1E90FF", "#87CEFA"],
+    def __init__(self,colors: List[str] =  ["#4B0082", "#708090", "#2F4F4F"],
                  n_bins: int = 10,
                 cmap_name: str = "blue_mate"):
          
