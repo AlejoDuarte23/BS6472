@@ -17,12 +17,15 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
     class VibrationTest(BaseModel):
         name: str
         fs: float
-        Acc_x: Any
-        Acc_y: Any
-        Acc_z: Any
-
+        Acc_x: np.ndarray
+        Acc_y: np.ndarray
+        Acc_z: np.ndarray
+        
         def set_accelerations(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z'], data: np.ndarray):
             setattr(self, axis, data)
+        
+        class Config:
+            arbitrary_types_allowed = True
 
 
     class VibrationSurvey(BaseModel):
@@ -35,27 +38,34 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
             return [getattr(test, axis) for test in self.list_of_tests]
 
 
+
     # Process the data: and slice the event : [39600:42000]
     acc_data = vibration_survey.list_of_tests[5].Acc_z[39600:42000]*9.81
     fs = vibration_survey.list_of_tests[5].fs
     _dir = 'Z'
-    service_assessment = Service_assessment(acc_data, fs, _dir,0.18)
+    service_assessment = Service_assessment(acc_data=acc_data, 
+                                            fs=fs, 
+                                            _dir = _dir,
+                                            rms= 0.18)
     
     # Curve factor as per BS 6472
     curve_factors = [1,2,4,8,24]
     labels = [f"{factor}x base curve" for factor in curve_factors]
     labels[0] = 'Base curve'
     
-    # Assessment plot
     service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels, tooltip=True , sensor_names=['Sensor 3'])
+
 ```
 
 ## Example Multiple Measurements 
 ``` python 
     # Vibration_survey_align_z: VibrationSurvey
+    vibration_survey_align_z = align_data_from_vibration_survey(vibration_survey, 'Acc_z')
+
     acc_z = vibration_survey_align_z.get_axis_data('Acc_z')
     acc_z_ms = acc_z
     acc_z_ms = [slice_array(acc,29600,32000) for acc in acc_z]
+
     rms_acc_z = [calculate_rms(acc) for acc in acc_z_ms]
     max_index = np.argmax(rms_acc_z)
 
@@ -67,7 +77,7 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
     service_assessment = Service_assessment(acc_data=acc_z_ms, 
                                             fs=fs, 
                                             _dir = _dir,
-                                            rms_fix= rms_acc_z)
+                                            rms= rms_acc_z)
     
     # Curve factor as per BS 6472
     curve_factors = [1,2,4,8,24]
@@ -76,6 +86,8 @@ Import  the Service_assessment class and pass the accelerarion data (NDArray), s
     
     # Assessment plot
     service_assessment.BS_6472(act_fact=[1,2,4,8,24], labels=labels,tooltip=bool_list,sensor_names=names)
+
+    
 
 ```
 

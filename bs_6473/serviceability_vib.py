@@ -4,7 +4,6 @@ import numpy as np
 import sys 
 import json 
 
-
 from pathlib import Path
 from scipy.signal import find_peaks
 from pathlib import Path
@@ -27,7 +26,6 @@ class Colormap:
     def get_color(self, index, total):
         """Get a specific color from the colormap based on index and total number of items."""
         return self.cm(index / (total - 1) if total > 1 else 0)
-
 
 
 class Service_assessment():

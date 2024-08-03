@@ -14,6 +14,7 @@ import matplotlib
 import pandas as pd
 
 matplotlib.use('Qt5Agg')
+matplotlib.pyplot.ion()
 
 #%% Clasess
 class VibrationTest(BaseModel):
@@ -42,12 +43,12 @@ class VibrationSurvey(BaseModel):
 
 #%% Data
 data_list = [
-"data/grandstand_N02_force/NO-02_13DIC_cel1_D.csv",
-"data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
-"data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
-"data/grandstand_N02_force/NO-02_13DIC_cel8_D.csv",
-"data/grandstand_N02_force/NO-02-13DIC-cel2-D.csv",
-"data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv"
+"../data/grandstand_N02_force/NO-02_13DIC_cel1_D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel8_D.csv",
+"../data/grandstand_N02_force/NO-02-13DIC-cel2-D.csv",
+"../data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv"
 ]
 
 names = ["cel1", "cel5", "cel7", "cel8", "cel2", "cel3"]

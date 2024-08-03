@@ -1,9 +1,12 @@
 #%% imports 
+import sys
+sys.path.append('..')
+
 from pydantic import BaseModel
 from numpy.typing import NDArray
 from bs_6473 import Service_assessment
 from typing import List, Any, Literal
-from utils import AlignMultipleMeasurements
+from examples.utils import AlignMultipleMeasurements
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +15,7 @@ import pandas as pd
 
 # For interactive terminal
 matplotlib.use('Qt5Agg')
+matplotlib.pyplot.ion()
 
 #%% Clasess
 class VibrationTest(BaseModel):
@@ -38,11 +42,11 @@ class VibrationSurvey(BaseModel):
 
 #%% Data and labels
 data_list = [
-"data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
-"data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
-"data/grandstand_N02_force/NO-02_13DIC_cel8_D.csv",
-"data/grandstand_N02_force/NO-02-13DIC-cel2-D.csv",
-"data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel5_D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel7_D.csv",
+"../data/grandstand_N02_force/NO-02_13DIC_cel8_D.csv",
+"../data/grandstand_N02_force/NO-02-13DIC-cel2-D.csv",
+"../data/grandstand_N02_force/NO-02-13DIC-Cel3-D.csv",
 ]
 
 names = ["Sensor 5", "Sensor 7", "Sensor 8", "Sensor 2", "Sensor 3"]
