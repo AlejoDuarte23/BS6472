@@ -8,40 +8,58 @@ import json
 from pathlib import Path
 from scipy.signal import find_peaks
 from pathlib import Path
-from typing import TypeVar, Union, List, overload
+from typing import TypeVar, Union, List, overload, Literal , Tuple
 from matplotlib.colors import LinearSegmentedColormap
 
-plt.close('all')
-T = TypeVar('T',bound= Union[int, List] )
 
+def load_json(filepath: str):
+    with open(filepath, 'r') as file:
+        data = json.load(file)
+    return data
+
+class Colormap:
+    def __init__(self,colors: List[str] =  ["#4B0082", "#708090", "#2F4F4F"],
+                 n_bins: int = 10,
+                cmap_name: str = "blue_mate"):
+         
+        self.cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
+
+    def get_color(self, index, total):
+        """Get a specific color from the colormap based on index and total number of items."""
+        return self.cm(index / (total - 1) if total > 1 else 0)
 
 
 
 class Service_assessment():
-    def __init__(self,acc_data,fs,_dir,rms_fix = None):
+    def __init__(self,
+                 acc_data: np.array,
+                 fs: float,
+                 _dir = Literal["X", "Y", "Z"],
+                 rms = Union[float,List[float]]):
+        
         self.data = acc_data 
         self.fs = fs
-        self._dir = _dir 
-        self.x_ticks = [1, 2, 3, 5, 6.3, 10, 16, 25, 40, 63, 80]
+        self._dir = _dir
+        self.rms = rms
         self.ylimits = []
         self.xlimits = []
-        self.rms_fix = rms_fix
+        self.x_ticks = [1, 2, 3, 5, 6.3, 10, 16, 25, 40, 63, 80]
         self.line_styles = [
                 (5, 5), (10, 5), (15, 5), (20, 5), (25, 5),
                 (5, 10), (5, 15), (5, 20), (5, 25), (10, 10)
             ]
 
     
-    def get_weights(self):
-
+    def get_weights(self)-> Tuple[List[float], List[float]]:
+        '''Get the weighting factors for the Z axis based on BS 6472'''
         file_path = Path(__file__).parent / 'BS_6472_weights.json'
-        with open(file_path, 'r') as file:
-            data = json.load(file)
+        data = load_json(filepath=file_path)
         frequency = data["BS_6472_weights_Z"]["frequency"]
         weights = data["BS_6472_weights_Z"]["weight"]
         return frequency, weights
 
-    def get_acc(self, act_fact: int):
+    def get_acc(self, act_fact: int)-> Tuple[List[float], List[float]]:
+        ''' Get the acceleration limits based on the activity factor'''
         file_path = Path(__file__).parent / 'BS_6472_curves.json'
         with open(file_path, 'r') as file:
             data = json.load(file)
@@ -53,70 +71,73 @@ class Service_assessment():
         self.xlimits = [frequency[0], frequency[-1]]
         return frequency,accelerations
     
-    
-
     def BS_6472(self, act_fact: Union[int, List[int]],
                 labels: Union[str,List[str]],
-                tooltip: list,
-                sensor_names: list):
+                tooltip: Union[list,List[bool]],
+                sensor_names: Union[str,list]) -> None:
     
         self.tooltip = tooltip
         self.sensor_names = sensor_names
-        colormap = Colormap()
-
 
         if isinstance(act_fact, int):
             act_fact = [act_fact]
 
         if isinstance(labels, str):
             labels = [labels]
+        
+        if isinstance(self.rms, float):
+            self.data = [self.data]
+            self.rms = [self.rms]
+            self.tooltip = [True]
+            self.sensor_names = [sensor_names]
 
-        accel_limits_list = []
+        # Plot accelertion limits
+        fig, ax = plt.subplots()
+        colormap = Colormap()
+        accel_limit_cmap = Colormap(colors = ["#FF0000", "#990000","#800000"],n_bins=6, cmap_name='red_mate')
+        ax, accel_limits_list = self.plot_acceleration_limits(ax = ax,colormap = accel_limit_cmap,
+                                      act_fact = act_fact, labels = labels)
+
+        # Plot the weighted acceleration values in frequency domain        
+        number_of_signals = len(self.data)
+        for index, (signal, rms, tooltip_val,sensor_name) in enumerate(zip(self.data, self.rms, self.tooltip , self.sensor_names)):    
+            self.plot_fft_rms(ax, signal, rms, color=colormap.get_color(index, number_of_signals),
+                              tooltip=tooltip_val,sensor_name = sensor_name)
+
+        # Add legend for acceleration limits 
+        lines = ax.get_lines()
+        legend1 = plt.legend([lines[i]for i in range(len(accel_limits_list))], labels, loc='lower right', framealpha=0.8)
+        ax.add_artist(legend1)
+        
+        # Add legend for sensor names
+        legend2 = plt.legend([lines[i] for i in range(len(accel_limits_list), len(lines))], sensor_names, loc='lower left', framealpha=0.8)
+        ax.add_artist(legend2)
+        
+        # Add title and labels
         title = f' Weighted Acceleration (rms) values for the base curve ({self._dir} axis)\nbased on BS 6472'
-    
+        plt.title(title)
+        plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Acceleration rms (m/s²)', fontsize=11)
+        plt.show()
+
+
+    def plot_acceleration_limits(self, ax: plt.Axes, colormap: Colormap,
+                                  act_fact: List[int], labels: List[str])-> Tuple[plt.Axes, List[List[float]]]:
+        
+        accel_limits_list = []
         for factor in act_fact:
             frequencies, accelerations = self.get_acc(factor)
             accel_limits_list.append(accelerations)
 
-        accel_limit_cmap = Colormap(colors = ["#FF0000", "#990000","#800000"],n_bins=6, cmap_name='red_mate')
 
-        fig, ax = plt.subplots()
         for indx, (accelerations, label, lstyle) in enumerate(zip(accel_limits_list,labels,self.line_styles)):
-            plt.plot(frequencies, accelerations, color= accel_limit_cmap.get_color(indx,len(accel_limits_list)), linewidth=1.2, label= label, linestyle='--', dashes=lstyle) 
+            plt.plot(frequencies, accelerations, color= colormap.get_color(indx,len(accel_limits_list)),
+                      linewidth=1.2, label= label, linestyle='--', dashes=lstyle) 
 
+        return ax, accel_limits_list
 
-        # Add the legend to the plot'+}        
-        if isinstance(self.rms_fix, float):
-            self.data = [self.data]
-            self.rms_fix = [self.rms_fix]
-            self.tooltip = [True]
-            self.sensor_names = [sensor_names]
-        
-        number_of_signals = len(self.data)
-        for index, (signal, rms, tooltip_val,sensor_name) in enumerate(zip(self.data, self.rms_fix, self.tooltip , self.sensor_names)):    
-            self.plot_fft_rms_fix(ax, signal, rms, color=colormap.get_color(index, number_of_signals),tooltip=tooltip_val,sensor_name = sensor_name)
-
-
-        lines = ax.get_lines()
-        legend1 = plt.legend([lines[i]for i in range(len(accel_limits_list))], labels, loc='lower right', framealpha=0.8)
-        ax.add_artist(legend1)
-
-        legend2 = plt.legend([lines[i] for i in range(len(accel_limits_list), len(lines))], sensor_names, loc='lower left', framealpha=0.8)
-        ax.add_artist(legend2)
-
-        plt.title(title)
-        plt.grid(True, which='both', linestyle='--', color=[0.1, 0.1, 0.1], alpha=0.1)
-        ax.set_xlabel('Frequency (Hz)')
-        plt.ylabel('Acceleration rms (m/s²)', fontsize=11)
-        # plt.legend(framealpha=0.0, loc='lower left')
-        # ax.legend(loc='lower left')
-        plt.show()
-
-    def set_rms(self,rms):
-        self.rms_fix = rms
-
-
-    def plot_fft_rms_fix(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT' , weights = True):
+    def plot_fft_rms(self, ax,data: np.array,rms_input: float, color='gray',tooltip = False, sensor_name = 'Normalized FFT' , weights = True):
         N = len(data)
         fft_output = np.fft.fft(data)
         freqs = np.fft.fftfreq(N, 1/self.fs)
@@ -132,10 +153,6 @@ class Service_assessment():
             weighted_rms = normalized_rms * interp_weights
         else:
             weighted_rms = normalized_rms
-
-
-
-  
 
         # Multiply the input RMS with the normalized FFT
         adjusted_rms = weighted_rms * rms_input
@@ -184,15 +201,4 @@ class Service_assessment():
             ax.set_xlim(self.xlimits[0], int(self.fs/2))
 
 
-class Colormap:
-    def __init__(self,colors: List[str] =  ["#4B0082", "#708090", "#2F4F4F"],
-                 n_bins: int = 10,
-                cmap_name: str = "blue_mate"):
-         
 
-        self.cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=n_bins)
-
-        
-    def get_color(self, index, total):
-        """Get a specific color from the colormap based on index and total number of items."""
-        return self.cm(index / (total - 1) if total > 1 else 0)

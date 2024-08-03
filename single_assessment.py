@@ -1,3 +1,4 @@
+#%% Imports 
 from bs_6473 import Service_assessment
 from scipy.io import loadmat
 from typing import List, Dict, Any, Literal
@@ -18,12 +19,15 @@ matplotlib.use('Qt5Agg')
 class VibrationTest(BaseModel):
     name: str
     fs: float
-    Acc_x: Any
-    Acc_y: Any
-    Acc_z: Any
-
+    Acc_x: np.ndarray
+    Acc_y: np.ndarray
+    Acc_z: np.ndarray
+    
     def set_accelerations(self, axis: Literal['Acc_x', 'Acc_y', 'Acc_z'], data: np.ndarray):
         setattr(self, axis, data)
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class VibrationSurvey(BaseModel):
@@ -54,36 +58,9 @@ headers = ['time (sec)', 'X vibration (g)', 'Y vibration (g)', 'Z vibration (g)'
 def calculate_fs(data:NDArray) -> float:
     fs = 1/(np.mean(np.diff(data)))
     return fs
-def plot_psd(acc: np.ndarray, fs: float):
-    # Define nfft as 2**10
-    nfft = 2**10
-    
-    # Compute the Power Spectral Density using Welch's method
-    f, Pxx = welch(acc, fs, nperseg=nfft)
-    
-    # Plot the PSD
-    plt.figure(figsize=(10, 6))
-    plt.semilogy(f, Pxx)
-    plt.title('Power Spectral Density (PSD)')
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('PSD (V^2/Hz)')
-    plt.grid(True)
-    plt.show()
-
-
-def calculate_rms_of_peaks(acc: np.ndarray):
-    # Find peaks in the signal
-    peaks, _ = find_peaks(acc)
-    
-    # Get the values at the peaks
-    peak_values = acc[peaks]
-    
-    # Calculate RMS of the peak values
-    rms_peaks = np.sqrt(np.mean(peak_values**2))
-    
-    return rms_peaks
 
 if __name__ == '__main__':
+
     vibration_survey = VibrationSurvey(list_of_tests=[])
     for data , name in zip(data_list, names):
         df_data = pd.read_csv(data)
@@ -100,9 +77,9 @@ if __name__ == '__main__':
     service_assessment = Service_assessment(acc_data=acc_data, 
                                             fs=fs, 
                                             _dir = _dir,
-                                            rms_fix= 0.18)
+                                            rms= 0.18)
     
-    # curve factor as per BS 6472
+    # Curve factor as per BS 6472
     curve_factors = [1,2,4,8,24]
     labels = [f"{factor}x base curve" for factor in curve_factors]
     labels[0] = 'Base curve'
